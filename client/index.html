@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
+    <script type="text/babel" >
+        "use strict";
+		let socket;
+		
+		const user = `user${(Math.floor((Math.random()*1000))+1)}`;
+		console.log("user: " + user);
+		
+		let draws = {};
+		
+		let canvas,ctx;
+		
+		const init = () =>{
+			canvas = document.querySelector('#mainCanvas');
+			ctx = canvas.getContext('2d');
+			socket = io.connect();
+			setupSocket();
+			setup();
+			
+			socket.on('connect', () => {
+				
+				socket.emit('join', 'room1');
+			});
+			
+			canvas.onmousedown = doMousedown;
+		}
+		
+		const setupSocket = () => {
+			console.log("setup");
+			
+			socket.on('update', (data) =>{
+				console.log(data);
+				
+				handleMessage(data);
+			});
+			
+			/*socket.on('clearPara', (data) =>{
+				document.querySelector("#myPara").innerHTML = "";
+			});*/
+		}
+		
+		const setup = () => {
+			const time = new Date().getTime();
+			let x = Math.floor(Math.random()*(300-10)+10);
+			let y = Math.floor(Math.random()*(300-10)+10);
+			draws[user] = {lastUpdate: time, x:x, y:y, width: 100, height: 100};
+		}
+		
+		const draw = () => {
+			ctx.clearRect(0,0,canvas.width, canvas.height);
+			
+			let keys = Object.keys(draws);
+			
+			for(let i = 0; i < keys.length; i++){
+				const drawCall = draws[ keys[i] ];
+				ctx.fillRect(drawCall.x, drawCall.y, drawCall.width, drawCall.height);
+			}
+		}
+		
+		/*const setCalls = () => {
+			let time = new Date().getTime();
+			draws[time] = {x:0, y:0, width:100, height:100};
+			
+			time = new Date.getTime();
+			let coords = {x:0, y:0, width:100, height:100};
+			
+			socket.emit('draw', {time: time, coords: coords});
+		}*/
+		
+		const handleMessage = (data) => {
+			if(!draws[data.name]){
+				draws[data.name] = data.coords;
+			}
+			else if(data.coords.lastUpdate > draws[data.name].lastUpdate){
+				draws[data.name] = data.coords;
+			}
+			draw();
+			/*draws[data.time] = data.coords;
+			draw();*/
+		}
+		
+		function doMousedown(e){
+			var mouse = getMouse(e);
+			let time = new Date().getTime();
+			draws[user] = {x:mouse.x, y:mouse.y, width:100, height:100};
+			socket.emit('draw', {name: user, coords: draws[user]});
+		}
+		function getMouse(e){
+			var mouse = {}
+			mouse.x = e.pageX - e.target.offsetLeft;
+			mouse.y = e.pageY - e.target.offsetTop;
+			return mouse;
+		}
+		
+		setInterval( () => {
+			const time = new Date().getTime();
+			
+			draws[user].lastUpdate = time;
+			draws[user].x += 5;
+			socket.emit('draw', {name: user, coords: draws[user]});
+			
+			draw();
+		}, 3000);
+		
+		window.onload = init;
+    </script>
+</head>
+<body>
+<canvas id="mainCanvas" width="700" height="500">Get a real browser!</canvas>
+</body>
+</html>
